@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static java.lang.Long.highestOneBit;
 
-public class ExponentialTillLimitAndThenCancelBatchAmountProvider implements TakeRequestBatchAmountProvider {
+public class ExponentialTillLimitThenCancelBatchAmountProvider implements TakeRequestBatchAmountProvider {
 
   @Override
   public Tuple2<Long, Long> getNextBatchAmount(long currentUpstreamRequestAmount, long cumulativeDownstreamAmount,

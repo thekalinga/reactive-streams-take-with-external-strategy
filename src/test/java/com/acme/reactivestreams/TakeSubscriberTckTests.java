@@ -41,7 +41,7 @@ public class TakeSubscriberTckTests extends SubscriberBlackboxVerification<Integ
       public void onComplete() {
         log.error("Is completed");
       }
-    }, 10, new OneByOneTillLimitAndThenCancelBatchAmountProvider());
+    }, 10, new OneByOneTillLimitThenCancelBatchAmountProvider());
   }
 
   @Override

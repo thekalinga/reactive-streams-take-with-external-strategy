@@ -3,7 +3,7 @@ package com.acme.reactivestreams;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
-public class OneByOneTillLimitAndThenCancelBatchAmountProvider implements TakeRequestBatchAmountProvider {
+public class OneByOneTillLimitThenCancelBatchAmountProvider implements TakeRequestBatchAmountProvider {
 
   @Override
   public Tuple2<Long, Long> getNextBatchAmount(long currentUpstreamRequestAmount, long cumulativeDownstreamAmount,

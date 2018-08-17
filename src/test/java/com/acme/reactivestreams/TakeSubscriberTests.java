@@ -51,11 +51,11 @@ public class TakeSubscriberTests {
       }
     };
 
-    OneByOneTillLimitAndThenCancelBatchAmountProvider onebyOneTillLimitAndCancelStrategy =
-        new OneByOneTillLimitAndThenCancelBatchAmountProvider();
+    OneByOneTillLimitThenCancelBatchAmountProvider onebyOneTillLimitAndCancelStrategy =
+        new OneByOneTillLimitThenCancelBatchAmountProvider();
 
-    ExponentialTillLimitAndThenCancelBatchAmountProvider exponentialTillLimitAndThenCancelStrategy =
-        new ExponentialTillLimitAndThenCancelBatchAmountProvider();
+    ExponentialTillLimitThenCancelBatchAmountProvider exponentialTillLimitAndThenCancelStrategy =
+        new ExponentialTillLimitThenCancelBatchAmountProvider();
 
     // finite source
     range(1, 12)
@@ -98,8 +98,8 @@ public class TakeSubscriberTests {
       }
     };
 
-    UnlimitedTillLimitAndThenCancelBatchAmountProvider unlimitedTillLimitAndCancelStrategy =
-        new UnlimitedTillLimitAndThenCancelBatchAmountProvider();
+    UnlimitedTillLimitThenCancelBatchAmountProvider unlimitedTillLimitAndCancelStrategy =
+        new UnlimitedTillLimitThenCancelBatchAmountProvider();
 
    //infinite source
     interval(ZERO, ofSeconds(1L))
@@ -143,9 +143,9 @@ public class TakeSubscriberTests {
         log.debug("DOWNSTREAM: Received onComplete");
       }
     };
-    TakeSuggestionTillLimitThenUnlimitedBatchAmountProvider
+    OneshotSuggestionAmountTillLimitThenUnlimitedBatchAmountProvider
         takeSuggestionTillLimitThenUnlimitedStrategy =
-        new TakeSuggestionTillLimitThenUnlimitedBatchAmountProvider();
+        new OneshotSuggestionAmountTillLimitThenUnlimitedBatchAmountProvider();
 
     // finite source
     range(1, 12)
