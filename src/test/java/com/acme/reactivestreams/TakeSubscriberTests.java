@@ -98,8 +98,8 @@ public class TakeSubscriberTests {
       }
     };
 
-    UnlimitedTillLimitThenCancelBatchAmountProvider unlimitedTillLimitAndCancelStrategy =
-        new UnlimitedTillLimitThenCancelBatchAmountProvider();
+    OneshotUnlimitedTillLimitThenCancelBatchAmountProvider unlimitedTillLimitAndCancelStrategy =
+        new OneshotUnlimitedTillLimitThenCancelBatchAmountProvider();
 
    //infinite source
     interval(ZERO, ofSeconds(1L))
