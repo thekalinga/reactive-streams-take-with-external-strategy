@@ -1,0 +1,28 @@
+//import org.gradle.internal.jvm.Jvm
+
+compileJava {
+  options.compilerArgs += [
+      '-Amapstruct.suppressGeneratorTimestamp=true',
+      '-Amapstruct.suppressGeneratorVersionInfoComment=true',
+  ]
+}
+
+dependencies {
+  compile "org.mapstruct:mapstruct-jdk8:${project.'mapstruct.version'}"
+
+//  testCompileOnly files(Jvm.current().getToolsJar())
+//  testCompileOnly("org.mapstruct:mapstruct-processor:${project.'mapstruct.version'}")
+//  testCompileOnly("org.mapstruct:mapstruct-jdk8:${project.'mapstruct.version'}")
+
+  compileOnly("org.mapstruct:mapstruct-processor:${project.'mapstruct.version'}")
+  // we need this for IDEA (for some strange reason)
+  testCompileOnly("org.mapstruct:mapstruct-processor:${project.'mapstruct.version'}")
+  // for gradle build
+  annotationProcessor("org.mapstruct:mapstruct-processor:${project.'mapstruct.version'}")
+}
+//
+//task printClasspath {
+//  doLast {
+//    configurations.testCompile.each { println it }
+//  }
+//}

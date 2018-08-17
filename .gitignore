@@ -1,0 +1,17 @@
+build/
+.gradle/
+.idea/
+target/
+out/
+.project
+.classpath
+/bootstrap.xml
+/font-awesome.xml
+*.*~
+*.iml
+**/*.iml
+*.ipl
+**/*.ipl
+*.iwl
+**/*.iwl
+*.log
