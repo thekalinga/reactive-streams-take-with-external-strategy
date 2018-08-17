@@ -23,7 +23,7 @@ public class TakeSubscriber<T> implements Subscriber<T>, Subscription {
   private final AtomicLong cumulativeUpstreamAmountRequested = new AtomicLong();
   // since only onNext updates this,
   private long cumulativeDownstreamAmountSent = 0L;
-  // Used only when numOfItemsToSendDownstream is MAX_VALUE. This exists to reduce the number queries we need to make to delegate. No need to worry about concurracy as this value is properly guarded by the way code is written & also this value is useful only when numOfItemsToSendDownstream = MAX_VALUE which is a ont time transtion. The only time this value will  be set is before the previous value is set
+  // Used only when numOfItemsToSendDownstream is MAX_VALUE. This exists to reduce the number queries we need to make to delegate. No need to worry about concurracy as this value is properly guarded by the way code is written & also this value is useful only when numOfItemsToSendDownstream = MAX_VALUE which is a ont time transtion. The only time this value will be set is when lastRequestedAmount = MAX_VALUE & before numOfItemsToSendDownstream is set, so we are well guarded
   private long nextUpstreamCutoffQuestionCumlulativeDownStreamAmount = 0L;
   private final AtomicLong additionalUpstreamAmountRequested = new AtomicLong();
 
