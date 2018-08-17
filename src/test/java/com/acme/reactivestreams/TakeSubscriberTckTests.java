@@ -1,7 +1,6 @@
 package com.acme.reactivestreams;
 
 import lombok.extern.log4j.Log4j2;
-import org.junit.Test;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import org.reactivestreams.tck.SubscriberBlackboxVerification;
@@ -42,7 +41,7 @@ public class TakeSubscriberTckTests extends SubscriberBlackboxVerification<Integ
       public void onComplete() {
         log.error("Is completed");
       }
-    }, 10, new RequestOneByOneTillLimitAndThenCancelBatchAmountProvider());
+    }, 10, new OneByOneTillLimitAndThenCancelBatchAmountProvider());
   }
 
   @Override

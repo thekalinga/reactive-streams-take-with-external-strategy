@@ -5,7 +5,7 @@ import reactor.util.function.Tuples;
 
 import static java.lang.Long.MAX_VALUE;
 
-public class RequestTakeSuggestionTillLimitThenUnlimitedBatchAmountProvider
+public class TakeSuggestionTillLimitThenUnlimitedBatchAmountProvider
     implements TakeRequestBatchAmountProvider {
 
   @Override

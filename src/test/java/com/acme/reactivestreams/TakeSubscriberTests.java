@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 
 import static java.lang.Long.MAX_VALUE;
@@ -52,8 +51,8 @@ public class TakeSubscriberTests {
       }
     };
 
-    RequestOneByOneTillLimitAndThenCancelBatchAmountProvider onebyOneTillLimitAndCancelStrategy =
-        new RequestOneByOneTillLimitAndThenCancelBatchAmountProvider();
+    OneByOneTillLimitAndThenCancelBatchAmountProvider onebyOneTillLimitAndCancelStrategy =
+        new OneByOneTillLimitAndThenCancelBatchAmountProvider();
 
     ExponentialTillLimitAndThenCancelBatchAmountProvider exponentialTillLimitAndThenCancelStrategy =
         new ExponentialTillLimitAndThenCancelBatchAmountProvider();
@@ -99,8 +98,8 @@ public class TakeSubscriberTests {
       }
     };
 
-    RequestUnlimitedTillLimitAndThenCancelBatchAmountProvider unlimitedTillLimitAndCancelStrategy =
-        new RequestUnlimitedTillLimitAndThenCancelBatchAmountProvider();
+    UnlimitedTillLimitAndThenCancelBatchAmountProvider unlimitedTillLimitAndCancelStrategy =
+        new UnlimitedTillLimitAndThenCancelBatchAmountProvider();
 
    //infinite source
     interval(ZERO, ofSeconds(1L))
@@ -144,9 +143,9 @@ public class TakeSubscriberTests {
         log.debug("DOWNSTREAM: Received onComplete");
       }
     };
-    RequestTakeSuggestionTillLimitThenUnlimitedBatchAmountProvider
+    TakeSuggestionTillLimitThenUnlimitedBatchAmountProvider
         takeSuggestionTillLimitThenUnlimitedStrategy =
-        new RequestTakeSuggestionTillLimitThenUnlimitedBatchAmountProvider();
+        new TakeSuggestionTillLimitThenUnlimitedBatchAmountProvider();
 
     // finite source
     range(1, 12)
