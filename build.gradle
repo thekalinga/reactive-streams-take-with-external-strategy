@@ -3,7 +3,6 @@ buildscript {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
         maven { url 'http://repo.spring.io/milestone' }
-//        maven { url 'http://repo.spring.io/snapshot' }
     }
     dependencies {
         classpath "com.github.jengelman.gradle.plugins:shadow:2.0.4"
@@ -33,19 +32,18 @@ repositories {
     mavenCentral()
     maven { url "https://jcenter.bintray.com" }
     maven { url 'http://repo.spring.io/milestone' }
-//    maven { url 'http://repo.spring.io/snapshot' }
 }
 
 dependencyManagement {
     imports {
-//        mavenBom "io.projectreactor:reactor-bom:Californium-M1"
+        mavenBom "io.projectreactor:reactor-bom:Californium-M1"
         mavenBom 'org.apache.logging.log4j:log4j-bom:2.11.1'
         mavenBom 'org.junit:junit-bom:5.3.0-M1'
     }
 }
 
 dependencies {
-    compile 'io.projectreactor:reactor-core:3.2.0.BUILD-SNAPSHOT'
+    compile 'io.projectreactor:reactor-core'
 
     // log4j2
     compile 'org.apache.logging.log4j:log4j-core'
