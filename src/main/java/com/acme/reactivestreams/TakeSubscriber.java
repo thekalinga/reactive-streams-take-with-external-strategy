@@ -1,9 +1,9 @@
 package com.acme.reactivestreams;
 
 import lombok.extern.log4j.Log4j2;
+import org.jetbrains.annotations.Nullable;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
-import reactor.util.function.Tuple2;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -12,10 +12,11 @@ import static java.lang.Long.MAX_VALUE;
 @Log4j2
 public class TakeSubscriber<T> implements Subscriber<T>, Subscription {
 
-  private final Subscriber<T> downstreamSubscriber;
-  private final long takeSuggestionAmount;
+  private final Subscriber<? super T> downstreamSubscriber;
   private final AtomicLong numOfItemsToSendDownstream = new AtomicLong();;
   private final TakeRequestBatchAmountProvider requestBatchAmountProvider;
+  @Nullable
+  private final InfiniteStreamContinuationSwitch infiniteStreamContinuationSwitch;
 
   private Subscription upstreamSubscription;
   // If this value would be set to 0, this indicates that we wont request new data anymore
@@ -27,10 +28,10 @@ public class TakeSubscriber<T> implements Subscriber<T>, Subscription {
   private long nextUpstreamCutoffQuestionCumlulativeDownStreamAmount = 0L;
   private final AtomicLong additionalUpstreamAmountRequested = new AtomicLong();
 
-  public TakeSubscriber(Subscriber<T> downstreamSubscriber, long takeSuggestionAmount, TakeRequestBatchAmountProvider requestBatchAmountProvider) {
+  public TakeSubscriber(Subscriber<? super T> downstreamSubscriber, TakeRequestBatchAmountProvider requestBatchAmountProvider, @Nullable InfiniteStreamContinuationSwitch infiniteStreamContinuationSwitch) {
     this.downstreamSubscriber = downstreamSubscriber;
-    this.takeSuggestionAmount = takeSuggestionAmount;
     this.requestBatchAmountProvider = requestBatchAmountProvider;
+    this.infiniteStreamContinuationSwitch = infiniteStreamContinuationSwitch;
   }
 
   @Override
@@ -56,14 +57,18 @@ public class TakeSubscriber<T> implements Subscriber<T>, Subscription {
           }
           // we need check with delegate again for an unbound upstream case (also we dont have worry about)
           if (nextUpstreamCutoffQuestionCumlulativeDownStreamAmount == cumulativeDownstreamAmountSent) {
-            Tuple2<Long, Long> nextBatchAmountResponse = requestBatchAmountProvider.getNextBatchAmount(0, cumulativeDownstreamAmountSent, MAX_VALUE, takeSuggestionAmount);
-            log.debug("Delegate response {}", nextBatchAmountResponse);
-            nextUpstreamCutoffQuestionCumlulativeDownStreamAmount = nextBatchAmountResponse.getT2();
-            lastRequestedAmount.set(nextBatchAmountResponse.getT1()); // dont worry about non CAS set as no else updates lastRequestedAmount when its value was MAX_VALUE
+            assert infiniteStreamContinuationSwitch != null; // since nextUpstreamCutoffQuestionCumlulativeDownStreamAmount != MAX_VALUE, request assures us that infiniteStreamContinuationSwitch != null
+            long additionalDownstreamAmount = infiniteStreamContinuationSwitch.getAdditionalDownstreamAmount(cumulativeDownstreamAmountSent);
+            log.debug("Delegate response {}", additionalDownstreamAmount);
+            if (additionalDownstreamAmount == 0L) {
+              lastRequestedAmount.set(0L); // dont worry about non CAS set as no else updates lastRequestedAmount when its value was MAX_VALUE
+            }
+            nextUpstreamCutoffQuestionCumlulativeDownStreamAmount += additionalDownstreamAmount;
             if (lastRequestedAmount.get() == 0L) {
-                log.debug("Cancelling upstream subscription as we dont want any more items from upstream");
-                upstreamSubscription.cancel();
-                downstreamSubscriber.onComplete();
+              log.debug(
+                  "Cancelling upstream subscription as we dont want any more items from upstream");
+              upstreamSubscription.cancel();
+              downstreamSubscriber.onComplete();
             }
           }
           break;
@@ -142,12 +147,20 @@ public class TakeSubscriber<T> implements Subscriber<T>, Subscription {
         // there nothing more to request as someone else already requested upstream, just ignore the request
         break;
       }
-      Tuple2<Long, Long> nextRequestBatchAmountResponse = requestBatchAmountProvider.getNextBatchAmount(currentDownstreamRequestAmount, cumulativeDownstreamAmountSent, cumulativeUpstreamAmountRequested.get(), takeSuggestionAmount);
-      long nextRequestBatchAmount = nextRequestBatchAmountResponse.getT1();
+      long nextRequestBatchAmount = requestBatchAmountProvider.getNextBatchAmount(currentDownstreamRequestAmount, cumulativeDownstreamAmountSent, cumulativeUpstreamAmountRequested.get());
       if (lastRequestedAmount.compareAndSet(expected, nextRequestBatchAmount)) {
         log.debug("Will request {} more items after booking keeping", nextRequestBatchAmount);
         if (nextRequestBatchAmount == MAX_VALUE) {
-          nextUpstreamCutoffQuestionCumlulativeDownStreamAmount = nextRequestBatchAmountResponse.getT2();
+          if (infiniteStreamContinuationSwitch != null) {
+            nextUpstreamCutoffQuestionCumlulativeDownStreamAmount = infiniteStreamContinuationSwitch.getAdditionalDownstreamAmount(cumulativeDownstreamAmountSent);
+          } else {
+            nextUpstreamCutoffQuestionCumlulativeDownStreamAmount = MAX_VALUE;
+          }
+        } else if (nextRequestBatchAmount == 0L) {
+          log.debug(
+              "Cancelling upstream subscription as we dont want any more items from upstream");
+          upstreamSubscription.cancel();
+          downstreamSubscriber.onComplete();
         }
         incrementAdditionalAmountRequestedFromUpstreamTarget(nextRequestBatchAmount, currentDownstreamRequestAmount);
         break;
@@ -164,6 +177,8 @@ public class TakeSubscriber<T> implements Subscriber<T>, Subscription {
       long target;
       if (nextRequestBatchAmount == MAX_VALUE) {
         target = MAX_VALUE;
+      } else if (currentDownstreamRequestAmount == MAX_VALUE) { // there is no point in subtracting limited value from MAX_VALUE. lets set to zero as we can never fetch more than the demand
+        target = 0L;
       } else {
         target = expected + (nextRequestBatchAmount - currentDownstreamRequestAmount);
       }

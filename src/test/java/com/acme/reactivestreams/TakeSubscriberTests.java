@@ -1,157 +1,192 @@
 package com.acme.reactivestreams;
 
 import lombok.extern.log4j.Log4j2;
+import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
+import reactor.core.publisher.BaseSubscriber;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.SignalType;
+import reactor.test.StepVerifier;
+import reactor.test.publisher.PublisherProbe;
+import reactor.test.publisher.TestPublisher;
+import reactor.test.util.RaceTestUtils;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
+import static com.acme.reactivestreams.FluxWrapper.wrap;
 import static java.lang.Long.MAX_VALUE;
+import static java.lang.Long.highestOneBit;
 import static java.time.Duration.ZERO;
 import static java.time.Duration.ofSeconds;
+import static org.assertj.core.api.Assertions.assertThat;
 import static reactor.core.publisher.Flux.interval;
 import static reactor.core.publisher.Flux.just;
 import static reactor.core.publisher.Flux.range;
-
+import static reactor.test.publisher.PublisherProbe.of;
 
 @Log4j2
 public class TakeSubscriberTests {
 
   @Test
-  void finiteSource() throws InterruptedException {
-    CountDownLatch latch = new CountDownLatch(1);
+  void oneByOneTillLimitAndCancel() {
+    TestPublisher<Integer> testPublisher = TestPublisher.create();
 
-    Subscriber<Integer> downstreamSubscriber = new Subscriber<Integer>() {
-      private Subscription subscription;
+    Flux<Integer> oneByOneTillLimitSource = wrap(Flux.from(testPublisher).log("batchOperator"))
+        .batch((__, cumulativeDownstreamAmount, ___) -> cumulativeDownstreamAmount == 3L ? 0L : 1L)
+        .log("downstream");
 
-      @Override
-      public void onSubscribe(Subscription subscription) {
-        this.subscription = subscription;
-        log.debug("DOWNSTREAM: Received onSubscribe()");
-        log.debug("DOWNSTREAM: Requesting {}L", MAX_VALUE);
-        subscription.request(MAX_VALUE);
-      }
-
-      @Override
-      public void onNext(Integer next) {
-        log.debug("DOWNSTREM: Received onNext({}L)", next);
-      }
-
-      @Override
-      public void onError(Throwable throwable) {
-        latch.countDown();
-        log.error("DOWNSTREAM: Received onError", throwable);
-      }
-
-      @Override
-      public void onComplete() {
-        latch.countDown();
-        log.debug("DOWNSTREAM: Received onComplete");
-      }
-    };
-
-    OneByOneTillLimitThenCancelBatchAmountProvider onebyOneTillLimitAndCancelStrategy =
-        new OneByOneTillLimitThenCancelBatchAmountProvider();
-
-    ExponentialTillLimitThenCancelBatchAmountProvider exponentialTillLimitAndThenCancelStrategy =
-        new ExponentialTillLimitThenCancelBatchAmountProvider();
-
-    // finite source
-    range(1, 12)
-        .log()
-        .subscribe(new TakeSubscriber<>(downstreamSubscriber, 10, exponentialTillLimitAndThenCancelStrategy));
-
-    latch.await();
+    StepVerifier.create(oneByOneTillLimitSource)
+      .then(testPublisher::assertWasSubscribed)
+      .then(() -> testPublisher.assertMinRequested(1))
+      .then(() -> testPublisher.next(1))
+      .expectNext(1)
+      .then(() -> testPublisher.assertMinRequested(1))
+      .then(() -> testPublisher.next(2))
+      .expectNext(2)
+      .then(() -> testPublisher.assertMinRequested(1))
+      .then(() -> testPublisher.next(3))
+      .expectNext(3)
+      .then(testPublisher::assertCancelled)
+      .expectComplete()
+      .verify();
   }
 
   @Test
-  void unlimitedSource() throws InterruptedException {
-    CountDownLatch latch = new CountDownLatch(1);
+  void unlimitedTillLimitAndCancel() {
+    TestPublisher<Integer> testPublisher = TestPublisher.create();
 
-    Subscriber<Integer> downstreamSubscriber = new Subscriber<Integer>() {
-      private Subscription subscription;
+    Flux<Integer> oneByOneTillLimitSource = wrap(Flux.from(testPublisher).log("batchOperator"))
+        .batch((__, ___, cumulativeUpstreamRequestAmount) -> MAX_VALUE, cumulativeDownstreamAmount -> cumulativeDownstreamAmount == 3L ? 0L : 3L)
+        .log("downstream");
 
-      @Override
-      public void onSubscribe(Subscription subscription) {
-        this.subscription = subscription;
-        log.debug("DOWNSTREAM: Received onSubscribe()");
-        log.debug("DOWNSTREAM: Requesting {}L", MAX_VALUE);
-        subscription.request(MAX_VALUE);
-      }
-
-      @Override
-      public void onNext(Integer next) {
-        log.debug("DOWNSTREM: Received onNext({}L)", next);
-      }
-
-      @Override
-      public void onError(Throwable throwable) {
-        latch.countDown();
-        log.error("DOWNSTREAM: Received onError", throwable);
-      }
-
-      @Override
-      public void onComplete() {
-        latch.countDown();
-        log.debug("DOWNSTREAM: Received onComplete");
-      }
-    };
-
-    OneshotUnlimitedTillLimitThenCancelBatchAmountProvider unlimitedTillLimitAndCancelStrategy =
-        new OneshotUnlimitedTillLimitThenCancelBatchAmountProvider();
-
-   //infinite source
-    interval(ZERO, ofSeconds(1L))
-        .map(Long::intValue)
-        .log()
-        .subscribe(new TakeSubscriber<>(downstreamSubscriber, 10, unlimitedTillLimitAndCancelStrategy));
-
-    latch.await();
+    StepVerifier.create(oneByOneTillLimitSource)
+        .then(testPublisher::assertWasSubscribed)
+        .then(() -> testPublisher.assertMinRequested(MAX_VALUE))
+        .then(() -> testPublisher.next(1))
+        .expectNext(1)
+        .then(() -> testPublisher.next(2))
+        .expectNext(2)
+        .then(() -> testPublisher.next(3))
+        .expectNext(3)
+        .then(testPublisher::assertCancelled)
+        .expectComplete()
+        .verify();
   }
 
   @Test
-  void suggestionLimitAndUnlimited() throws InterruptedException {
-    CountDownLatch latch = new CountDownLatch(1);
+  void oneshotTillLimitAndUnlimited() {
+    TestPublisher<Integer> testPublisher = TestPublisher.create();
 
-    Subscriber<Integer> downstreamSubscriber = new Subscriber<Integer>() {
-      private Subscription subscription;
+    Flux<Integer> oneByOneTillLimitSource = wrap(Flux.from(testPublisher).log("batchOperator"))
+        .batch((__, ___, cumulativeUpstreamRequestAmount) -> cumulativeUpstreamRequestAmount < 3L ? 3L : MAX_VALUE, __ -> MAX_VALUE)
+        .log("downstream");
+
+    StepVerifier.create(oneByOneTillLimitSource)
+        .then(testPublisher::assertWasSubscribed)
+        .then(() -> testPublisher.assertMinRequested(3L))
+        .then(() -> testPublisher.next(1))
+        .expectNext(1)
+        .then(() -> testPublisher.next(2))
+        .expectNext(2)
+        .then(() -> testPublisher.next(3))
+        .expectNext(3)
+        .then(() -> testPublisher.assertMinRequested(MAX_VALUE))
+        .then(() -> testPublisher.next(4))
+        .expectNext(4)
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void exponentialTillLimitThenCancel() {
+    TestPublisher<Integer> testPublisher = TestPublisher.create();
+
+    Flux<Integer> oneByOneTillLimitSource = wrap(Flux.from(testPublisher).log("batchOperator"))
+        .batch((__, ___, cumulativeUpstreamRequestAmount) -> {
+          long overallLimit = 10L ;
+          if (cumulativeUpstreamRequestAmount == 0) {
+            return 1L;
+          } else if (cumulativeUpstreamRequestAmount == 1) {
+            return 2L;
+          }
+          long nextPowerOf2 = highestOneBit(cumulativeUpstreamRequestAmount - 1) * 2L;
+          return (nextPowerOf2 + cumulativeUpstreamRequestAmount) <= overallLimit ? nextPowerOf2 : (overallLimit - cumulativeUpstreamRequestAmount);
+        })
+        .log("downstream");
+
+    StepVerifier.create(oneByOneTillLimitSource)
+        .then(testPublisher::assertWasSubscribed)
+        .then(() -> testPublisher.assertMinRequested(1))
+        .then(() -> testPublisher.next(1))
+        .expectNext(1)
+        .then(() -> testPublisher.assertMinRequested(2))
+        .then(() -> testPublisher.next(2, 3))
+        .expectNext(2, 3)
+        .then(() -> testPublisher.assertMinRequested(4))
+        .then(() -> testPublisher.next(4, 5, 6, 7))
+        .expectNext(4, 5, 6, 7)
+        .then(() -> testPublisher.assertMinRequested(3))
+        .then(() -> testPublisher.next(8, 9, 10))
+        .expectNext(8, 9, 10)
+        .then(testPublisher::assertCancelled)
+        .expectComplete()
+        .verify();
+  }
+
+  @Test
+  public void limitRateLowTideRace() throws InterruptedException {
+    final AtomicInteger counter = new AtomicInteger();
+    final CountDownLatch latch = new CountDownLatch(1);
+    final List<Long> requests = Collections.synchronizedList(new ArrayList<>(10_000 / 50));
+    final List<Long> downstreamRequests = Collections.synchronizedList(new ArrayList<>(2));
+
+    final Flux<Integer> flux = wrap(
+            Flux.range(1, 10_000)
+            .hide()
+            .doOnRequest(requests::add)
+        )
+        .batch((__, ___, upstreamReq) -> upstreamReq == 0 ? 100L : 50L)
+        .doOnRequest(downstreamRequests::add);
+
+    final BaseSubscriber<Integer> baseSubscriber = new BaseSubscriber<Integer>() {
+      @Override
+      protected void hookOnSubscribe(Subscription subscription) {	}
 
       @Override
-      public void onSubscribe(Subscription subscription) {
-        this.subscription = subscription;
-        log.debug("DOWNSTREAM: Received onSubscribe()");
-        log.debug("DOWNSTREAM: Requesting {}L", MAX_VALUE);
-        subscription.request(1);
+      protected void hookOnNext(Integer value) {
+        counter.incrementAndGet();
       }
 
       @Override
-      public void onNext(Integer next) {
-        log.debug("DOWNSTREM: Received onNext({}L)", next);
-        subscription.request(1L);
-      }
-
-      @Override
-      public void onError(Throwable throwable) {
+      protected void hookFinally(SignalType type) {
         latch.countDown();
-        log.error("DOWNSTREAM: Received onError", throwable);
-      }
-
-      @Override
-      public void onComplete() {
-        latch.countDown();
-        log.debug("DOWNSTREAM: Received onComplete");
       }
     };
-    OneshotSuggestionAmountTillLimitThenUnlimitedBatchAmountProvider
-        takeSuggestionTillLimitThenUnlimitedStrategy =
-        new OneshotSuggestionAmountTillLimitThenUnlimitedBatchAmountProvider();
 
-    // finite source
-    range(1, 12)
-        .log()
-        .subscribe(new TakeSubscriber<>(downstreamSubscriber, 10, takeSuggestionTillLimitThenUnlimitedStrategy));
+    flux.subscribe(baseSubscriber);
 
-    latch.await();
+    RaceTestUtils.race(
+        () -> baseSubscriber.request(1_000),
+        () -> baseSubscriber.request(9_000));
+
+    latch.await(5, TimeUnit.SECONDS);
+
+    System.out.println(downstreamRequests);
+
+    SoftAssertions.assertSoftly(softly -> {
+      softly.assertThat(requests).as("initial request").startsWith(100L);
+      softly.assertThat(requests.subList(1, requests.size())).as("requests after first").allMatch(i -> i == 50);
+      softly.assertThat(counter).as("number of elements received").hasValue(10_000);
+      softly.assertThat(requests.stream().mapToLong(i -> i).sum()).as("total propagated demand").isEqualTo(10_000);
+    });
   }
 }
