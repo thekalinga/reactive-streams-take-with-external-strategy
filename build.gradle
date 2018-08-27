@@ -53,6 +53,9 @@ dependencies {
 
     compile 'io.earcam:io.earcam.unexceptional:1.0.0'
 
+    // https://mvnrepository.com/artifact/org.antlr/antlr4
+    compile group: 'org.antlr', name: 'antlr4', version: '4.7.1'
+
     testCompile 'org.junit.jupiter:junit-jupiter-api'
     testCompile 'org.junit.jupiter:junit-jupiter-engine'
     testCompile 'org.junit.jupiter:junit-jupiter-params'
